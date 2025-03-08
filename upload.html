@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .chat-box {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .input-box {
+            display: flex;
+            margin-top: 10px;
+        }
+        input, button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            margin-left: 10px;
+            background: blue;
+            color: white;
+            cursor: pointer;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+        .user { background: lightblue; align-self: flex-end; }
+        .bot { background: lightgray; align-self: flex-start; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Upload a PDF</h2>
+    <input type="file" id="pdf-upload">
+    <button onclick="uploadPDF()">Upload</button>
+
+    <h3>Predefined Queries</h3>
+    <div id="predefined-queries"></div>
+
+    <h3>Chat with PDF</h3>
+    <div class="chat-box" id="chat-box"></div>
+    <div class="input-box">
+        <input type="text" id="user-input" placeholder="Type your message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    function uploadPDF() {
+        let fileInput = document.getElementById("pdf-upload");
+        let formData = new FormData();
+        formData.append("pdf", fileInput.files[0]);
+
+        fetch("/upload", { method: "POST", body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                displayPredefinedQueries(data.predefined_responses);
+            }
+        })
+        .catch(error => console.error("Upload Error:", error));
+    }
+
+    function displayPredefinedQueries(responses) {
+        let queryBox = document.getElementById("predefined-queries");
+        queryBox.innerHTML = "";
+        
+        for (let query in responses) {
+            let queryElem = document.createElement("div");
+            queryElem.innerHTML = `<strong>Q:</strong> ${query} <br> <strong>A:</strong> ${responses[query].direct_answer}<hr>`;
+            queryBox.appendChild(queryElem);
+        }
+    }
+
+    function sendMessage() {
+        let userInput = document.getElementById("user-input").value;
+        let chatBox = document.getElementById("chat-box");
+
+        if (userInput.trim() === "") return;
+
+        let userMessage = document.createElement("div");
+        userMessage.classList.add("message", "user");
+        userMessage.innerText = userInput;
+        chatBox.appendChild(userMessage);
+        document.getElementById("user-input").value = "";
+
+        fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userInput })
+        })
+        .then(response => response.json())
+        .then(data => {
+            let botMessage = document.createElement("div");
+            botMessage.classList.add("message", "bot");
+            botMessage.innerText = data.reply;
+            chatBox.appendChild(botMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(error => console.error("Chat Error:", error));
+    }
+
+    document.getElementById("user-input").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") sendMessage();
+    });
+</script>
+
+</body>
+</html>
