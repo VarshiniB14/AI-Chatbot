@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milestone Tracker</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .milestone-tracker { position: fixed; top: 10px; right: 10px; cursor: pointer; background: #007bff; color: white; padding: 10px; border-radius: 5px; }
+        .milestone-container { display: none; position: fixed; top: 50px; right: 10px; background: white; padding: 20px; border: 1px solid #ddd; width: 300px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+        .milestone-list { list-style: none; padding: 0; }
+        .milestone-item { padding: 10px; border-bottom: 1px solid #ddd; }
+        .progress-bar { width: 100%; background: #ddd; height: 10px; margin: 10px 0; }
+        .progress { height: 10px; background: green; width: 0%; }
+    </style>
+</head>
+<body>
+
+    <!-- **Milestone Tracker Button** -->
+    <div class="milestone-tracker">Milestone Tracker</div>
+
+    <!-- **Milestone Tracker Popup** -->
+    <div class="milestone-container">
+        <h3>Milestones</h3>
+        <ul class="milestone-list"></ul>
+
+        <h4>Add Milestone</h4>
+        <input type="text" id="milestone-title" placeholder="Title">
+        <input type="date" id="milestone-date">
+        <textarea id="milestone-notes" placeholder="Notes"></textarea>
+        <button id="add-milestone">Add</button>
+
+        <h4>Progress</h4>
+        <div class="progress-bar"><div class="progress"></div></div>
+
+        <button onclick="$('.milestone-container').hide();">Close</button>
+    </div>
+
+    <script>
+        // Toggle Milestone Tracker
+        $(".milestone-tracker").click(function() {
+            $(".milestone-container").toggle();
+            fetchMilestones();
+        });
+
+        // Fetch Milestones
+        function fetchMilestones() {
+            $.get("/get_milestones", function(data) {
+                $(".milestone-list").empty();
+                let completed = 0;
+                data.forEach(m => {
+                    let checked = m.status === "Completed" ? "checked" : "";
+                    if (m.status === "Completed") completed++;
+
+                    $(".milestone-list").append(`
+                        <li class="milestone-item">
+                            <input type="checkbox" ${checked} onclick="updateMilestone('${m.title}', this.checked)">
+                            <b>${m.title}</b> - ${m.status} (Due: ${m.due_date})
+                            <button onclick="deleteMilestone('${m.title}')">❌</button>
+                        </li>
+                    `);
+                });
+
+                // Update Progress Bar
+                let progress = (completed / data.length) * 100;
+                $(".progress").css("width", progress + "%");
+            });
+        }
+
+        // Add Milestone (Fix: Include contentType)
+        $("#add-milestone").click(function() {
+            let title = $("#milestone-title").val();
+            let date = $("#milestone-date").val();
+            let notes = $("#milestone-notes").val();
+
+            if (!title || !date) {
+                alert("Please enter title and due date.");
+                return;
+            }
+
+            $.ajax({
+                url: "/add_milestone",
+                type: "POST",
+                contentType: "application/json",  // Fix: Ensure JSON is recognized
+                data: JSON.stringify({ title, due_date: date, notes }),
+                success: function() {
+                    fetchMilestones();
+                }
+            });
+
+            $("#milestone-title").val("");
+            $("#milestone-date").val("");
+            $("#milestone-notes").val("");
+        });
+
+        // Update Milestone Status (Fix: JSON.stringify data)
+        function updateMilestone(title, completed) {
+            let status = completed ? "Completed" : "In Progress";
+            $.ajax({
+                url: "/update_milestone",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ title, status }),
+                success: function() {
+                    fetchMilestones();
+                }
+            });
+        }
+
+        // Delete Milestone (Fix: JSON.stringify data)
+        function deleteMilestone(title) {
+            $.ajax({
+                url: "/delete_milestone",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ title }),
+                success: function() {
+                    fetchMilestones();
+                }
+            });
+        }
+
+    </script>
+
+</body>
+</html>
